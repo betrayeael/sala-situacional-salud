@@ -333,7 +333,26 @@
             insert: (table, obj) => { const db = DB.get(); obj.id = table.substring(0, 3) + Date.now(); db[table].push(obj); DB.save(db); return obj.id; },
             delete: (table, id) => { const db = DB.get(); db[table] = db[table].filter(item => item.id !== id); if (table === 'centers') { db.students = db.students.filter(s => s.centerId !== id); db.pathologies = db.pathologies.filter(p => p.centerId !== id); } DB.save(db); },
             update: (id, data) => { let db = DB.get(); let i = db.centers.findIndex(c => c.id === id); if (i !== -1) { db.centers[i] = { ...db.centers[i], ...data }; DB.save(db); } },
-            clearAllCaches: async () => { memoryFallback = DB.defaultData(); try { localStorage.clear(); } catch (_) {} try { sessionStorage.clear(); } catch (_) {} try { if ('caches' in window) { const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k))); } } catch (_) {} DB.init(); }
+            clearAllCaches: async () => {
+                memoryFallback = DB.defaultData();
+                try { localStorage.clear(); } catch (_) {}
+                try { sessionStorage.clear(); } catch (_) {}
+                try {
+                    if ('caches' in window) {
+                        const keys = await caches.keys();
+                        await Promise.all(keys.map(k => caches.delete(k)));
+                    }
+                } catch (_) {}
+                try {
+                    if ('serviceWorker' in navigator) {
+                        const regs = await navigator.serviceWorker.getRegistrations();
+                        await Promise.all(regs.map(r => r.unregister()));
+                    }
+                } catch (_) {}
+                const url = new URL(window.location.href);
+                url.searchParams.set('nocache', Date.now());
+                window.location.replace(url.toString());
+            }
         };
         DB.init();
 
@@ -596,7 +615,10 @@
         }
 
         document.getElementById('btnStartNormal').addEventListener('click', () => { closeModal('modalStartup'); initMap(); });
-        document.getElementById('btnStartClearCache').addEventListener('click', async () => { await DB.clearAllCaches(); closeModal('modalStartup'); initMap(); showToast('Caché vaciada'); });
+        document.getElementById('btnStartClearCache').addEventListener('click', async () => {
+            showToast('Limpiando caché y recargando...');
+            await DB.clearAllCaches();
+        });
         document.getElementById('btnFullscreen').addEventListener('click', enterImmersive);
         document.getElementById('btnExitImmersive').addEventListener('click', exitImmersive);
         document.getElementById('btnAddCenter').addEventListener('click', () => { if (isCreating) cancelCreate(); else startCreate(); });
@@ -605,11 +627,22 @@
         document.getElementById('btnBackup').addEventListener('click', downloadBackup);
         document.getElementById('btnRestore').addEventListener('click', () => document.getElementById('fileRestore').click());
         document.getElementById('fileRestore').addEventListener('change', restoreBackup);
-        document.getElementById('btnClearCache').addEventListener('click', async () => { if (!confirm('¿Vaciar caché?')) return; await DB.clearAllCaches(); renderAll(); showToast('Caché vaciada'); });
+        document.getElementById('btnClearCache').addEventListener('click', async () => {
+            if (!confirm('¿Vaciar caché y recargar la versión más reciente?')) return;
+            showToast('Limpiando caché y recargando...');
+            await DB.clearAllCaches();
+        });
         document.getElementById('btnExportCoords').addEventListener('click', () => { copyTextSafe(JSON.stringify(DB.get().centers, null, 2)); });
 
         window.addEventListener('resize', () => { if (map) setTimeout(() => map.invalidateSize(), 150); });
         window.addEventListener('orientationchange', () => { if (map) setTimeout(() => map.invalidateSize(), 300); });
+
+        // Si acaba de recargar tras limpiar caché, entra directo sin repetir el modal
+        if (new URLSearchParams(window.location.search).has('nocache')) {
+            closeModal('modalStartup');
+            initMap();
+            showToast('Caché vaciada y sistema actualizado');
+        }
     </script>
 </body>
 </html>
