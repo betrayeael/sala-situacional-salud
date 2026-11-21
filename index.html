@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>Sala Situacional - Red de Salud</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -12,98 +13,184 @@
             --bg-main: #f5f5f7; --bg-card: #ffffff; --text-blue: #0056b3; --text-light-blue: #007aff;
             --text-dim: #86868b; --accent-gold: #bf9b30; --accent-gold-light: #f0e6c8; --accent-orange: #ff7a00;
             --border: rgba(0,0,0,0.08); --shadow-sm: 0 4px 12px rgba(0,0,0,0.05);
-            --shadow-md: 0 10px 30px rgba(0,0,0,0.1);
+            --shadow-md: 0 10px 30px rgba(0,0,0,0.12);
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        html, body { font-family: 'Inter', -apple-system, sans-serif; background-color: var(--bg-main); color: var(--text-blue); width: 100%; height: 100vh; height: 100dvh; overflow: hidden; overscroll-behavior: none; }
-        body { display: flex; flex-direction: column; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
 
-        header { background: rgba(255,255,255,0.8); backdrop-filter: blur(20px); border-bottom: 2px solid var(--accent-gold); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; box-shadow: var(--shadow-sm); gap: 10px; flex-shrink: 0; }
-        .brand-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
-        header h1 { font-size: 18px; font-weight: 700; color: var(--accent-orange); letter-spacing: -0.5px; white-space: nowrap; }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        html, body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-blue);
+            width: 100%; height: 100vh; height: 100dvh;
+            overflow: hidden; overscroll-behavior: none;
+        }
+        body {
+            display: flex; flex-direction: column;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* MODO INMERSIVO */
+        body.immersive-mode header { display: none !important; }
+        .exit-immersive-btn {
+            position: absolute; top: 12px; left: 12px; z-index: 1200;
+            display: none; background: rgba(255,255,255,0.92);
+            -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+            border: 1.5px solid var(--accent-gold); color: var(--accent-orange);
+            padding: 8px 14px; font-weight: 700; font-size: 13px;
+            border-radius: 20px; box-shadow: var(--shadow-md); cursor: pointer;
+        }
+        body.immersive-mode .exit-immersive-btn { display: inline-flex; align-items: center; gap: 6px; }
+
+        header {
+            background: rgba(255,255,255,0.88);
+            -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+            border-bottom: 2px solid var(--accent-gold);
+            padding: 10px 16px; display: flex; justify-content: space-between; align-items: center;
+            z-index: 1000; box-shadow: var(--shadow-sm); gap: 10px; flex-shrink: 0;
+        }
+        .brand-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+        header h1 { font-size: 17px; font-weight: 700; color: var(--accent-orange); letter-spacing: -0.5px; white-space: nowrap; }
         .sys-status { font-size: 12px; color: var(--text-blue); font-weight: 500; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
         .sys-status::before { content: ''; width: 8px; height: 8px; background: var(--accent-orange); border-radius: 50%; box-shadow: 0 0 8px var(--accent-orange); animation: pulse 2s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
         .header-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-        .btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-blue); padding: 8px 12px; font-weight: 600; font-size: 13px; cursor: pointer; border-radius: 18px; transition: all 0.2s; box-shadow: var(--shadow-sm); white-space: nowrap; }
+        .btn {
+            background: var(--bg-card); border: 1px solid var(--border); color: var(--text-blue);
+            padding: 7px 11px; font-weight: 600; font-size: 12px; cursor: pointer;
+            border-radius: 16px; transition: all 0.2s; box-shadow: var(--shadow-sm); white-space: nowrap;
+            touch-action: manipulation;
+        }
         .btn:hover { background: var(--accent-gold-light); border-color: var(--accent-gold); }
         .btn.active { background: var(--accent-orange); color: #fff; border-color: var(--accent-orange); }
         .btn.calibrate-active { background: var(--accent-gold); color: #fff; border-color: var(--accent-gold); }
-        .btn.danger { color: #ff3b30; border-color: rgba(255, 59, 48, 0.2); }
+        .btn.danger { color: #ff3b30; border-color: rgba(255, 59, 48, 0.25); }
 
         .container { flex: 1; display: flex; overflow: hidden; position: relative; min-height: 0; }
-        .sidebar { width: 300px; height: 100%; background: var(--bg-card); border-right: 1px solid var(--border); overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px; z-index: 900; flex-shrink: 0; transition: transform 0.3s ease; }
-        .sidebar h2 { font-size: 14px; color: var(--accent-orange); margin-bottom: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid var(--accent-gold); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
-        .center-card { background: var(--bg-main); border: 1px solid var(--border); border-left: 4px solid var(--text-light-blue); padding: 12px; margin-bottom: 10px; cursor: pointer; border-radius: 12px; transition: transform 0.1s, box-shadow 0.2s; }
-        .center-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-left-color: var(--accent-orange); }
-        .center-card h3 { font-size: 14px; margin-bottom: 3px; color: var(--text-blue); font-weight: 600; }
+        .sidebar {
+            width: 290px; height: 100%; background: var(--bg-card); border-right: 1px solid var(--border);
+            overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px; z-index: 900;
+            flex-shrink: 0; transition: transform 0.3s ease;
+        }
+        .sidebar h2 { font-size: 13px; color: var(--accent-orange); margin-bottom: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid var(--accent-gold); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .center-card { background: var(--bg-main); border: 1px solid var(--border); border-left: 4px solid var(--text-light-blue); padding: 10px 12px; margin-bottom: 8px; cursor: pointer; border-radius: 10px; transition: transform 0.1s, box-shadow 0.2s; }
+        .center-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); border-left-color: var(--accent-orange); }
+        .center-card h3 { font-size: 14px; margin-bottom: 2px; color: var(--text-blue); font-weight: 600; }
         .center-card p { font-size: 12px; color: var(--text-dim); }
-        .card-badges { display: flex; gap: 8px; margin-top: 6px; }
-        .badge { font-size: 10px; padding: 2px 6px; background: rgba(0,0,0,0.05); border-radius: 4px; color: var(--text-blue); }
 
         .map-wrapper { flex: 1; position: relative; height: 100%; background: var(--bg-main); min-width: 0; }
         #map { position: absolute; inset: 0; z-index: 1; background-color: var(--bg-main) !important; }
         .leaflet-container { background-color: var(--bg-main) !important; outline: none; font-family: 'Inter', sans-serif !important; }
         .leaflet-control-layers { background: var(--bg-card) !important; color: var(--text-blue) !important; border: 1px solid var(--accent-gold) !important; border-radius: 12px !important; box-shadow: var(--shadow-sm) !important; }
-        
+
         .custom-div-icon { background: transparent; border: none; }
         .marker-dot { width: 14px; height: 14px; background: var(--color); border: 3px solid #fff; border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
         .marker-calibrating { outline: 2px dashed var(--accent-gold); outline-offset: 4px; cursor: grab !important; }
 
-        .panel-right { width: 0; height: 100%; background: var(--bg-card); border-left: 2px solid var(--accent-gold); flex-shrink: 0; overflow: hidden; transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; box-shadow: var(--shadow-md); z-index: 800; }
-        .panel-right.active { width: 360px; }
-        .panel-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; flex-shrink: 0; }
-        .panel-header h2 { color: var(--accent-orange); font-size: 20px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; }
-        .panel-header .close { background: var(--bg-main); border: none; color: var(--text-dim); font-size: 22px; cursor: pointer; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        .panel-body { padding: 20px 24px; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
+        .panel-right {
+            width: 0; height: 100%; background: var(--bg-card); border-left: 2px solid var(--accent-gold);
+            flex-shrink: 0; overflow: hidden; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s ease;
+            display: flex; flex-direction: column; box-shadow: var(--shadow-md); z-index: 950;
+        }
+        .panel-right.active { width: 350px; }
+        .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; flex-shrink: 0; }
+        .panel-header h2 { color: var(--accent-orange); font-size: 18px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 2px; }
+        .panel-header .close { background: var(--bg-main); border: none; color: var(--text-dim); font-size: 22px; cursor: pointer; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .panel-body { padding: 16px 20px; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
 
-        .terminal-view { background: var(--bg-main); border: 1.5px solid var(--accent-gold); padding: 20px; border-radius: 16px; min-height: 160px; max-height: 320px; overflow-y: auto; color: var(--text-blue); font-size: 15px; line-height: 1.6; font-weight: 500; box-shadow: inset 0 2px 4px rgba(0,0,0,0.03); }
-        .terminal-line { white-space: pre-wrap; word-wrap: break-word; margin-bottom: 6px; }
-        .terminal-prefix { color: var(--accent-orange); margin-right: 8px; font-weight: 700; }
+        .terminal-view { background: var(--bg-main); border: 1.5px solid var(--accent-gold); padding: 14px; border-radius: 14px; min-height: 130px; max-height: 280px; overflow-y: auto; color: var(--text-blue); font-size: 14px; line-height: 1.5; font-weight: 500; box-shadow: inset 0 2px 4px rgba(0,0,0,0.03); }
+        .terminal-line { white-space: pre-wrap; word-wrap: break-word; margin-bottom: 5px; }
+        .terminal-prefix { color: var(--accent-orange); margin-right: 6px; font-weight: 700; }
         .cursor-blink::after { content: '▍'; animation: blink 1s infinite step-end; color: var(--accent-orange); }
         @keyframes blink { 50% { opacity: 0; } }
 
         .edit-form { display: none; }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .form-group { margin-bottom: 16px; }
-        .form-group label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .form-input { width: 100%; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-blue); padding: 12px; font-size: 16px; border-radius: 12px; transition: border-color 0.2s, box-shadow 0.2s; }
-        .form-input:focus { border-color: var(--accent-gold); outline: none; box-shadow: 0 0 0 4px var(--accent-gold-light); }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+        .form-input { width: 100%; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-blue); padding: 10px 12px; font-size: 16px; border-radius: 10px; transition: border-color 0.2s; }
+        .form-input:focus { border-color: var(--accent-gold); outline: none; box-shadow: 0 0 0 3px var(--accent-gold-light); }
 
-        .tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 20px; gap: 8px; overflow-x: auto; }
-        .tab { padding: 10px 14px; cursor: pointer; color: var(--text-dim); font-weight: 600; font-size: 14px; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; border-radius: 8px 8px 0 0; white-space: nowrap; }
+        .tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 14px; gap: 6px; overflow-x: auto; }
+        .tab { padding: 8px 12px; cursor: pointer; color: var(--text-dim); font-weight: 600; font-size: 13px; border-bottom: 2px solid transparent; margin-bottom: -2px; border-radius: 8px 8px 0 0; white-space: nowrap; }
         .tab.active { color: var(--accent-orange); border-bottom-color: var(--accent-orange); background: var(--accent-gold-light); }
 
-        .list-item { background: var(--bg-main); border: 1px solid var(--border); border-left: 4px solid var(--text-light-blue); padding: 14px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px; }
+        .list-item { background: var(--bg-main); border: 1px solid var(--border); border-left: 4px solid var(--text-light-blue); padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-radius: 10px; }
         .list-item.student { border-left-color: #34c759; }
         .list-item.pathology { border-left-color: #ff3b30; }
-        .list-item h4 { color: var(--text-blue); font-size: 15px; margin-bottom: 2px; }
-        .list-item span { font-size: 13px; color: var(--text-dim); }
-        .delete-btn { background: transparent; border: none; color: #ff3b30; cursor: pointer; font-size: 22px; padding: 0 8px; opacity: 0.6; }
+        .list-item h4 { color: var(--text-blue); font-size: 14px; margin-bottom: 2px; }
+        .list-item span { font-size: 12px; color: var(--text-dim); }
+        .delete-btn { background: transparent; border: none; color: #ff3b30; cursor: pointer; font-size: 20px; padding: 0 6px; opacity: 0.7; }
 
-        .map-instruction { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: var(--accent-orange); color: #fff; padding: 8px 16px; font-weight: 600; font-size: 13px; z-index: 500; display: none; border-radius: 20px; max-width: 92%; text-align: center; }
-        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--text-blue); color: #fff; padding: 14px 24px; font-weight: 600; opacity: 0; transition: 0.3s; z-index: 3000; border-radius: 20px; box-shadow: var(--shadow-md); }
+        .map-instruction { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: var(--accent-orange); color: #fff; padding: 8px 16px; font-weight: 600; font-size: 12px; z-index: 500; display: none; border-radius: 20px; max-width: 92%; text-align: center; }
+        .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--text-blue); color: #fff; padding: 11px 20px; font-weight: 600; font-size: 13px; opacity: 0; transition: 0.3s; z-index: 3000; border-radius: 20px; box-shadow: var(--shadow-md); white-space: nowrap; }
         .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-        .focus-btn { position: absolute; bottom: 20px; left: 20px; background: var(--bg-card); border: 1px solid var(--accent-gold); color: var(--accent-orange); padding: 10px 18px; font-weight: 700; font-size: 14px; border-radius: 20px; box-shadow: var(--shadow-md); z-index: 500; display: none; cursor: pointer; }
+        .focus-btn { position: absolute; bottom: 16px; left: 16px; background: var(--bg-card); border: 1px solid var(--accent-gold); color: var(--accent-orange); padding: 9px 14px; font-weight: 700; font-size: 13px; border-radius: 20px; box-shadow: var(--shadow-md); z-index: 500; display: none; cursor: pointer; }
 
-        .modal-bg { position: fixed; inset: 0; background: rgba(255,255,255,0.6); backdrop-filter: blur(15px); display: none; justify-content: center; align-items: center; z-index: 2000; padding: 20px; }
+        .modal-bg { position: fixed; inset: 0; background: rgba(255,255,255,0.65); -webkit-backdrop-filter: blur(15px); backdrop-filter: blur(15px); display: none; justify-content: center; align-items: center; z-index: 2000; padding: 16px; }
         .modal-bg.active { display: flex; }
-        .modal-box { background: var(--bg-card); border: 1px solid var(--accent-gold); width: 100%; max-width: 500px; max-height: 88dvh; overflow-y: auto; border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.15); animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        @keyframes modalPop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .modal-header { padding: 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-        .modal-header h2 { color: var(--accent-orange); font-size: 22px; font-weight: 700; }
-        .modal-header .close { background: var(--bg-main); border: none; color: var(--text-dim); font-size: 24px; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; }
-        .modal-body { padding: 24px; }
+        .modal-box { background: var(--bg-card); border: 1px solid var(--accent-gold); width: 100%; max-width: 480px; max-height: 88dvh; overflow-y: auto; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.15); animation: modalPop 0.25s ease; }
+        @keyframes modalPop { from { transform: scale(0.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .modal-header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h2 { color: var(--accent-orange); font-size: 19px; font-weight: 700; }
+        .modal-header .close { background: var(--bg-main); border: none; color: var(--text-dim); font-size: 22px; cursor: pointer; width: 34px; height: 34px; border-radius: 50%; }
+        .modal-body { padding: 18px 20px; }
 
-        @media (max-width: 768px) {
-            header { flex-direction: column; align-items: stretch; padding: 8px 10px; gap: 8px; }
-            .header-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 100%; }
-            .header-actions .btn { width: 100%; padding: 7px 4px; font-size: 11px; text-align: center; }
-            .sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: 88%; z-index: 1001; transform: translateX(-100%); }
-            .sidebar.open { transform: translateX(0); box-shadow: var(--shadow-md); }
-            .panel-right { position: absolute; right: 0; top: 0; bottom: 0; width: 100%; z-index: 1001; }
+        /* === MÓVIL VERTICAL (BOTTOM SHEET PARA NO TAPAR EL MAPA) === */
+        @media (max-width: 768px) and (orientation: portrait) {
+            header { flex-direction: column; align-items: stretch; padding: 8px 10px; gap: 6px; }
+            header h1 { font-size: 15px; }
+            .header-actions { display: flex; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 6px; padding-bottom: 2px; scrollbar-width: none; }
+            .header-actions::-webkit-scrollbar { display: none; }
+            .header-actions .btn { padding: 6px 10px; font-size: 11px; flex-shrink: 0; }
+
+            .sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: 82%; max-width: 300px; z-index: 1001; transform: translateX(-100%); box-shadow: var(--shadow-md); }
+            .sidebar.open { transform: translateX(0); }
+
+            .panel-right {
+                position: absolute; left: 0; right: 0; bottom: 0; top: auto;
+                width: 100% !important; height: 52dvh;
+                border-left: none; border-top: 2px solid var(--accent-gold);
+                border-radius: 20px 20px 0 0;
+                transform: translateY(105%);
+                z-index: 1002;
+            }
+            .panel-right.active { transform: translateY(0); }
+            .panel-header { padding: 12px 16px; }
+            .panel-header h2 { font-size: 16px; }
+            .panel-body { padding: 12px 16px; }
+            .terminal-view { min-height: 90px; max-height: 150px; padding: 10px; font-size: 13px; }
             .form-grid { grid-template-columns: 1fr; }
+        }
+
+        /* === MÓVIL HORIZONTAL / LATERAL (ULTRACOMPACTO) === */
+        @media (max-height: 540px) and (orientation: landscape) {
+            header { flex-direction: row; align-items: center; padding: 5px 10px; gap: 8px; }
+            header h1 { font-size: 13px; }
+            .sys-status { display: none; }
+            .header-actions { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 5px; scrollbar-width: none; }
+            .header-actions::-webkit-scrollbar { display: none; }
+            .header-actions .btn { padding: 4px 8px; font-size: 11px; flex-shrink: 0; }
+
+            .sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: 230px; padding: 10px; z-index: 1001; transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); box-shadow: var(--shadow-md); }
+            .center-card { padding: 8px; margin-bottom: 6px; }
+            .center-card h3 { font-size: 12px; }
+            .center-card p { font-size: 11px; }
+
+            .panel-right { position: absolute; right: 0; top: 0; bottom: 0; height: 100%; z-index: 1002; }
+            .panel-right.active { width: 270px; }
+            .panel-header { padding: 8px 12px; }
+            .panel-header h2 { font-size: 14px; }
+            .panel-body { padding: 10px 12px; }
+            .tabs { margin-bottom: 8px; }
+            .tab { padding: 5px 8px; font-size: 11px; }
+            .terminal-view { min-height: 80px; max-height: 140px; padding: 8px; font-size: 12px; }
+            .form-input { padding: 6px 8px; font-size: 13px; }
+            .modal-box { max-width: 400px; }
+            .modal-header, .modal-body { padding: 12px 16px; }
         }
     </style>
 </head>
@@ -116,6 +203,7 @@
         </div>
         <div class="header-actions">
             <button class="btn" id="btnMenu">☰ Nodos</button>
+            <button class="btn" id="btnFullscreen">⛶ Inmersivo</button>
             <button class="btn" id="btnCalibrate">⌖ Calibrar</button>
             <button class="btn" id="btnAddCenter">+ Nuevo</button>
             <button class="btn" id="btnExportCoords">⇩ Coords</button>
@@ -130,9 +218,10 @@
             <h2><span>Nodos Activos</span><button class="btn" id="btnRestore" style="padding:4px 8px; font-size:11px;">⇧ Restaurar</button></h2>
             <div id="centerList"></div>
         </div>
-        
+
         <div class="map-wrapper">
             <div id="map"></div>
+            <button class="exit-immersive-btn" id="btnExitImmersive">✕ Salir Inmersivo</button>
             <div class="map-instruction" id="mapInstr">TOCA EL MAPA PARA GEOLOCALIZAR CENTRO</div>
             <button class="focus-btn" id="btnShowOthers" onclick="showAllMarkers()">👁 Mostrar Otros</button>
         </div>
@@ -141,7 +230,7 @@
             <div class="panel-header">
                 <div>
                     <h2 id="vName"></h2>
-                    <span style="font-size:14px; color:var(--text-dim); font-weight:500;" id="vType"></span>
+                    <span style="font-size:12px; color:var(--text-dim); font-weight:500;" id="vType"></span>
                 </div>
                 <button class="close" onclick="closePanel()">&times;</button>
             </div>
@@ -162,19 +251,19 @@
                         <div class="form-group"><label>Encargado</label><input type="text" id="eAuth" class="form-input"></div>
                         <div class="form-group"><label>Teléfono</label><input type="text" id="ePhone" class="form-input"></div>
                         <div class="form-group"><label>Horario</label><input type="text" id="eSched" class="form-input"></div>
-                        <div class="form-group"><label>Áreas Clínicas</label><textarea id="eAreas" class="form-input" rows="3"></textarea></div>
+                        <div class="form-group"><label>Áreas Clínicas</label><textarea id="eAreas" class="form-input" rows="2"></textarea></div>
                     </div>
-                    <div style="margin-top: 20px; display:flex; gap:10px; justify-content: space-between;">
+                    <div style="margin-top: 14px; display:flex; gap:10px; justify-content: space-between;">
                         <button class="btn danger" onclick="deleteCenter()">Eliminar</button>
                         <button class="btn" id="btnToggleEdit" onclick="toggleEditMode()">✎ Editar</button>
                     </div>
                 </div>
                 <div id="tabStudents" style="display:none;">
-                    <button class="btn active" style="width:100%; margin-bottom:14px;" onclick="addStudent()">+ Asignar Estudiante</button>
+                    <button class="btn active" style="width:100%; margin-bottom:12px;" onclick="addStudent()">+ Asignar Estudiante</button>
                     <div id="studentList"></div>
                 </div>
                 <div id="tabPathos" style="display:none;">
-                    <button class="btn active" style="width:100%; margin-bottom:14px; background:#ff3b30; border-color:#ff3b30;" onclick="addPathology()">+ Reportar Patología</button>
+                    <button class="btn active" style="width:100%; margin-bottom:12px; background:#ff3b30; border-color:#ff3b30;" onclick="addPathology()">+ Reportar Patología</button>
                     <div id="pathologyList"></div>
                 </div>
             </div>
@@ -182,12 +271,12 @@
     </div>
 
     <div class="modal-bg active" id="modalStartup">
-        <div class="modal-box" style="max-width: 420px; text-align: center;">
+        <div class="modal-box" style="max-width: 380px; text-align: center;">
             <div class="modal-header" style="justify-content: center; border: none;"><h2>Inicio de Sistema</h2></div>
             <div class="modal-body">
-                <p style="font-size: 15px; color: var(--text-dim); margin-bottom: 20px;">Selecciona cómo iniciar:</p>
-                <button class="btn active" id="btnStartNormal" style="width:100%; padding:12px; margin-bottom:8px;">▶ Iniciar (Conservar Datos)</button>
-                <button class="btn danger" id="btnStartClearCache" style="width:100%; padding:12px;">🗑 Vaciar Caché y Cargar Coordenadas MVP</button>
+                <p style="font-size: 14px; color: var(--text-dim); margin-bottom: 16px;">Selecciona cómo iniciar:</p>
+                <button class="btn active" id="btnStartNormal" style="width:100%; padding:11px; margin-bottom:8px;">▶ Iniciar (Conservar Datos)</button>
+                <button class="btn danger" id="btnStartClearCache" style="width:100%; padding:11px;">🗑 Vaciar Caché y Cargar Coordenadas MVP</button>
             </div>
         </div>
     </div>
@@ -211,10 +300,10 @@
                 <div class="form-group"><label>Encargado</label><input type="text" id="cAuth" class="form-input"></div>
                 <div class="form-group"><label>Teléfono</label><input type="text" id="cPhone" class="form-input"></div>
                 <div class="form-group"><label>Horario</label><input type="text" id="cSched" class="form-input" placeholder="24/7 o 08:00-16:00"></div>
-                <div class="form-group"><label>Áreas Clínicas</label><textarea id="cAreas" class="form-input" rows="3"></textarea></div>
-                <div style="text-align:right; margin-top:16px; display:flex; gap:10px; justify-content:flex-end;">
-                    <button class="btn" onclick="cancelCreate()">CANCELAR</button>
-                    <button class="btn active" onclick="saveCenter()">GUARDAR</button>
+                <div class="form-group"><label>Áreas Clínicas</label><textarea id="cAreas" class="form-input" rows="2"></textarea></div>
+                <div style="text-align:right; margin-top:14px; display:flex; gap:10px; justify-content:flex-end;">
+                    <button class="btn" onclick="cancelCreate()">Cancelar</button>
+                    <button class="btn active" onclick="saveCenter()">Guardar</button>
                 </div>
             </div>
         </div>
@@ -243,7 +332,7 @@
             save: (data) => { memoryFallback = data; try { localStorage.setItem(DB_KEY, JSON.stringify(data)); } catch (_) {} },
             insert: (table, obj) => { const db = DB.get(); obj.id = table.substring(0, 3) + Date.now(); db[table].push(obj); DB.save(db); return obj.id; },
             delete: (table, id) => { const db = DB.get(); db[table] = db[table].filter(item => item.id !== id); if (table === 'centers') { db.students = db.students.filter(s => s.centerId !== id); db.pathologies = db.pathologies.filter(p => p.centerId !== id); } DB.save(db); },
-            update: (id, data) => { let db = DB.get(); let i = db.centers.findIndex(c => c.id === id); if(i!==-1) { db.centers[i] = {...db.centers[i], ...data}; DB.save(db); } },
+            update: (id, data) => { let db = DB.get(); let i = db.centers.findIndex(c => c.id === id); if (i !== -1) { db.centers[i] = { ...db.centers[i], ...data }; DB.save(db); } },
             clearAllCaches: async () => { memoryFallback = DB.defaultData(); try { localStorage.clear(); } catch (_) {} try { sessionStorage.clear(); } catch (_) {} try { if ('caches' in window) { const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k))); } } catch (_) {} DB.init(); }
         };
         DB.init();
@@ -253,42 +342,72 @@
         let isCreating = false, isCalibrating = false, currentCenterId = null, isEditing = false;
         let isFocused = false, focusedCenterId = null;
         let audioCtx = null, noiseBuffer = null;
-        
-        // TOKEN DE CANCELACIÓN PARA SONIDO Y TIPEO
         let currentToken = 0;
 
         function initMap() {
             if (typeof L === 'undefined') return;
             if (map) { map.invalidateSize(); renderAll(); return; }
 
-            map = L.map('map', { zoomControl: false, attributionControl: false }).setView([10.354268, -67.036209], 13);
+            map = L.map('map', { zoomControl: false, attributionControl: false, tap: false }).setView([10.354268, -67.036209], 13);
             const googleHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] }).addTo(map);
             const googleStreets = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] });
             const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] });
-            const darkLayer = L.layerGroup([ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }), L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }) ]);
+            const darkLayer = L.layerGroup([
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }),
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 })
+            ]);
 
             layerControl = L.control.layers({ "Google Híbrido": googleHybrid, "Google Calles": googleStreets, "Google Satélite": googleSat, "Táctico Oscuro": darkLayer }, {}, { position: 'topright' }).addTo(map);
             L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-            map.on('click', function (e) { if (isCreating) { document.getElementById('cLat').value = e.latlng.lat.toFixed(6); document.getElementById('cLng').value = e.latlng.lng.toFixed(6); openModal('modalCreate'); } });
+            map.on('click', function (e) {
+                if (isCreating) {
+                    document.getElementById('cLat').value = e.latlng.lat.toFixed(6);
+                    document.getElementById('cLng').value = e.latlng.lng.toFixed(6);
+                    openModal('modalCreate');
+                }
+            });
             setTimeout(() => map.invalidateSize(), 250);
             renderAll();
         }
+
+        // --- MODO INMERSIVO / PANTALLA COMPLETA ---
+        function enterImmersive() {
+            document.body.classList.add('immersive-mode');
+            closeSidebarMobile();
+            const el = document.documentElement;
+            if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+            else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+            if (map) setTimeout(() => map.invalidateSize(), 250);
+            showToast('Modo Inmersivo activado');
+        }
+
+        function exitImmersive() {
+            document.body.classList.remove('immersive-mode');
+            if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+            else if (document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen();
+            if (map) setTimeout(() => map.invalidateSize(), 250);
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                document.body.classList.remove('immersive-mode');
+                if (map) setTimeout(() => map.invalidateSize(), 200);
+            }
+        });
 
         // --- AUDIO ---
         function initAudio() { if (!audioCtx) { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); const bufferSize = audioCtx.sampleRate * 0.2; noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate); const output = noiseBuffer.getChannelData(0); for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1; } if (audioCtx.state === 'suspended') audioCtx.resume(); }
         function playClickSound() { if (!audioCtx || !noiseBuffer) return; const ns = audioCtx.createBufferSource(); ns.buffer = noiseBuffer; const f = audioCtx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(800, audioCtx.currentTime); f.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.1); const g = audioCtx.createGain(); g.gain.setValueAtTime(0.15, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15); ns.connect(f); f.connect(g); g.connect(audioCtx.destination); ns.start(); ns.stop(audioCtx.currentTime + 0.16); }
         function playTypeSound() { if (!audioCtx || !noiseBuffer) return; const ns = audioCtx.createBufferSource(); ns.buffer = noiseBuffer; const f = audioCtx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1500 + Math.random() * 600; f.Q.value = 2; const g = audioCtx.createGain(); g.gain.setValueAtTime(0.06, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04); ns.connect(f); f.connect(g); g.connect(audioCtx.destination); ns.start(); ns.stop(audioCtx.currentTime + 0.05); }
 
-        // TIPEO CON VALIDACIÓN DE TOKEN (Se cancela instantáneamente)
-        async function typeLine(container, text, prefix="", token) {
+        async function typeLine(container, text, prefix = "", token) {
             const lineDiv = document.createElement('div');
             lineDiv.className = 'terminal-line cursor-blink';
             container.appendChild(lineDiv);
             container.scrollTop = container.scrollHeight;
-            
             for (let i = 0; i < text.length; i++) {
-                if (token !== currentToken) return; // Si el token cambió, detener todo
+                if (token !== currentToken) return;
                 lineDiv.innerHTML = `<span class="terminal-prefix">${prefix}</span>${text.substring(0, i + 1)}`;
                 playTypeSound();
                 container.scrollTop = container.scrollHeight;
@@ -297,23 +416,13 @@
             lineDiv.classList.remove('cursor-blink');
         }
 
-        function showToast(msg) { let t = document.getElementById('toast'); t.innerText = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2600); }
+        function showToast(msg) { const t = document.getElementById('toast'); t.innerText = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2400); }
         function openModal(id) { document.getElementById(id).classList.add('active'); }
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-        
-        function openPanel() {
-            document.getElementById('panelView').classList.add('active');
-            setTimeout(() => { map.invalidateSize(); }, 360);
-        }
-        function closePanel() {
-            document.getElementById('panelView').classList.remove('active');
-            setTimeout(() => { map.invalidateSize(); }, 360);
-            showAllMarkers();
-            currentToken++; // Detener cualquier tipeo al cerrar
-        }
-        
+        function openPanel() { document.getElementById('panelView').classList.add('active'); setTimeout(() => { if (map) map.invalidateSize(); }, 340); }
+        function closePanel() { document.getElementById('panelView').classList.remove('active'); setTimeout(() => { if (map) map.invalidateSize(); }, 340); showAllMarkers(); currentToken++; }
         function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
-        function closeSidebarMobile() { if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open'); }
+        function closeSidebarMobile() { if (window.innerWidth <= 900) document.getElementById('sidebar').classList.remove('open'); }
         function switchTab(id, el) { document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); el.classList.add('active'); document.querySelectorAll('#tabData, #tabStudents, #tabPathos').forEach(t => t.style.display = 'none'); document.getElementById(id).style.display = 'block'; }
 
         function renderAll() {
@@ -350,7 +459,7 @@
 
         function renderSidebar() {
             const db = DB.get(); const list = document.getElementById('centerList'); list.innerHTML = '';
-            if (db.centers.length === 0) { list.innerHTML = '<p style="color:var(--text-dim); text-align:center; font-size:14px;">Sin nodos.</p>'; return; }
+            if (db.centers.length === 0) { list.innerHTML = '<p style="color:var(--text-dim); text-align:center; font-size:13px;">Sin nodos.</p>'; return; }
             db.centers.forEach(c => {
                 const color = c.type === 'Hospital' ? '#ff3b30' : c.type === 'Ambulatorio' ? '#34c759' : '#007aff';
                 list.innerHTML += `<div class="center-card" style="border-left-color: ${color};" onclick="focusOrView('${c.id}')"><h3>${c.name}</h3><p>${c.type} | ${c.affiliation}</p></div>`;
@@ -383,42 +492,34 @@
         async function viewCenter(id) {
             initAudio();
             playClickSound();
-            
-            // INCREMENTAR TOKEN: Esto detiene instantáneamente cualquier tipeo anterior
-            currentToken++; 
+            currentToken++;
             const myToken = currentToken;
-            
+
             const db = DB.get(); const c = db.centers.find(x => x.id === id);
-            if(!c) return; currentCenterId = id; isEditing = false;
-            
-            // Limpiar UI inmediatamente
+            if (!c) return; currentCenterId = id; isEditing = false;
+
             document.getElementById('vName').innerText = c.name;
             document.getElementById('vType').innerText = `${c.type.toUpperCase()} | ${c.affiliation}`;
             document.getElementById('editForm').style.display = 'none';
             const term = document.getElementById('terminalOutput');
-            term.style.display = 'block'; term.innerHTML = ''; // Limpiar texto anterior
+            term.style.display = 'block'; term.innerHTML = '';
             const editBtn = document.getElementById('btnToggleEdit');
             editBtn.innerText = '✎ Editar'; editBtn.classList.remove('active');
             switchTab('tabData', document.getElementById('tabInfoBtn'));
-            
+
             openPanel();
-            
-            await new Promise(r => setTimeout(r, 400));
-            if (myToken !== currentToken) return; // Abortar si el usuario presionó otro
 
-            map.invalidateSize(); 
-            map.flyTo([c.lat, c.lng], 16, { duration: 0.8 });
-            
-            // Esperar a que el mapa termine de centrarse
-            await new Promise(r => setTimeout(r, 850)); 
-            if (myToken !== currentToken) return; // Abortar si el usuario presionó otro
+            await new Promise(r => setTimeout(r, 350));
+            if (myToken !== currentToken) return;
 
-            // AHORA SÍ: Iniciar descripción y sonido
+            map.invalidateSize();
+            map.flyTo([c.lat, c.lng], 16, { duration: 0.7 });
+
+            await new Promise(r => setTimeout(r, 750));
+            if (myToken !== currentToken) return;
+
             await typeLine(term, "ACCEDIENDO AL NODO...", ">", myToken);
             if (myToken !== currentToken) return;
-            await new Promise(r => setTimeout(r, 150));
-            if (myToken !== currentToken) return;
-            
             await typeLine(term, `Coordenadas: ${c.lat}, ${c.lng}`, ">", myToken);
             if (myToken !== currentToken) return;
             await typeLine(term, `Ente: ${c.affiliation}`, ">", myToken);
@@ -430,7 +531,7 @@
             await typeLine(term, `Áreas: ${c.areas || 'N/A'}`, ">", myToken);
             if (myToken !== currentToken) return;
             await typeLine(term, "FIN DEL REGISTRO.", ">", myToken);
-            
+
             if (myToken === currentToken) renderLists(id);
         }
 
@@ -439,7 +540,7 @@
             const term = document.getElementById('terminalOutput');
             const form = document.getElementById('editForm');
             const btn = document.getElementById('btnToggleEdit');
-            if(isEditing) {
+            if (isEditing) {
                 const c = DB.get().centers.find(x => x.id === currentCenterId);
                 term.style.display = 'none'; form.style.display = 'block'; btn.innerText = '💾 Guardar'; btn.classList.add('active');
                 document.getElementById('eName').value = c.name; document.getElementById('eType').value = c.type;
@@ -452,21 +553,21 @@
             }
         }
 
-        function deleteCenter() { if(!confirm("Eliminar?")) return; DB.delete('centers', currentCenterId); closePanel(); renderAll(); }
+        function deleteCenter() { if (!confirm("¿Eliminar nodo?")) return; DB.delete('centers', currentCenterId); closePanel(); renderAll(); }
         function renderLists(id) {
             const db = DB.get();
-            let stuHtml = '<p style="color:var(--text-dim); text-align:center; padding:20px;">Sin estudiantes.</p>';
+            let stuHtml = '<p style="color:var(--text-dim); text-align:center; padding:14px;">Sin estudiantes.</p>';
             let students = db.students.filter(s => s.centerId === id);
-            if(students.length > 0) stuHtml = students.map(s => `<div class="list-item student"><div><h4>${s.name}</h4><span>${s.group}</span></div><button class="delete-btn" onclick="deleteItem('students','${s.id}')">&times;</button></div>`).join('');
+            if (students.length > 0) stuHtml = students.map(s => `<div class="list-item student"><div><h4>${s.name}</h4><span>${s.group}</span></div><button class="delete-btn" onclick="deleteItem('students','${s.id}')">&times;</button></div>`).join('');
             document.getElementById('studentList').innerHTML = stuHtml;
-            let patHtml = '<p style="color:var(--text-dim); text-align:center; padding:20px;">Sin reportes.</p>';
+            let patHtml = '<p style="color:var(--text-dim); text-align:center; padding:14px;">Sin reportes.</p>';
             let pathologies = db.pathologies.filter(p => p.centerId === id);
-            if(pathologies.length > 0) patHtml = pathologies.map(p => `<div class="list-item pathology"><div><h4>${p.name}</h4><span>${p.symptoms}</span></div><button class="delete-btn" onclick="deleteItem('pathologies','${p.id}')">&times;</button></div>`).join('');
+            if (pathologies.length > 0) patHtml = pathologies.map(p => `<div class="list-item pathology"><div><h4>${p.name}</h4><span>${p.symptoms}</span></div><button class="delete-btn" onclick="deleteItem('pathologies','${p.id}')">&times;</button></div>`).join('');
             document.getElementById('pathologyList').innerHTML = patHtml;
         }
         function deleteItem(table, id) { DB.delete(table, id); renderLists(currentCenterId); }
-        function addStudent() { const n = prompt("Nombre:"); if(!n) return; const g = prompt("Grupo:"); DB.insert('students', { centerId: currentCenterId, name: n, group: g }); renderLists(currentCenterId); }
-        function addPathology() { const n = prompt("Patología:"); if(!n) return; const s = prompt("Síntomas:"); DB.insert('pathologies', { centerId: currentCenterId, name: n, symptoms: s }); renderLists(currentCenterId); }
+        function addStudent() { const n = prompt("Nombre:"); if (!n) return; const g = prompt("Grupo:"); DB.insert('students', { centerId: currentCenterId, name: n, group: g }); renderLists(currentCenterId); }
+        function addPathology() { const n = prompt("Patología:"); if (!n) return; const s = prompt("Síntomas:"); DB.insert('pathologies', { centerId: currentCenterId, name: n, symptoms: s }); renderLists(currentCenterId); }
 
         function toggleCalibrate() {
             if (isCreating) cancelCreate();
@@ -475,8 +576,8 @@
             const btn = document.getElementById('btnCalibrate');
             const instr = document.getElementById('mapInstr');
             btn.classList.toggle('calibrate-active', isCalibrating);
-            btn.innerText = isCalibrating ? '✓ LISTO' : '⌖ CALIBRAR';
-            if (isCalibrating) { instr.classList.add('calibrate'); instr.innerText = "MODO CALIBRACIÓN: ARRASTRA LOS PINES"; instr.style.display = 'block'; showToast('Toca un centro en NODOS'); } else { instr.style.display = 'none'; }
+            btn.innerText = isCalibrating ? '✓ Listo' : '⌖ Calibrar';
+            if (isCalibrating) { instr.innerText = "MODO CALIBRACIÓN: ARRASTRA LOS PINES"; instr.style.display = 'block'; showToast('Toca un centro en Nodos'); } else { instr.style.display = 'none'; }
             renderAll();
         }
 
@@ -485,18 +586,20 @@
         function downloadBackup() { const blob = new Blob([JSON.stringify(DB.get(), null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `respaldo_${new Date().toISOString().slice(0, 10)}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(url), 1000); showToast('Respaldo descargado'); }
         function restoreBackup(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const parsed = JSON.parse(e.target.result); if (!Array.isArray(parsed.centers)) { showToast('Formato inválido'); return; } DB.save(parsed); renderAll(); showToast('Restaurado'); } catch (_) { showToast('Error'); } }; reader.readAsText(file); event.target.value = ''; }
 
-        function startCreate() { if (isCalibrating) toggleCalibrate(); closeSidebarMobile(); isCreating = true; document.getElementById('btnAddCenter').innerText = "CANCELAR"; document.getElementById('btnAddCenter').classList.add('danger'); document.getElementById('mapInstr').innerText = "TOCA EL MAPA PARA UBICAR EL CENTRO"; document.getElementById('mapInstr').style.display = 'block'; }
-        function cancelCreate() { isCreating = false; document.getElementById('btnAddCenter').innerText = "+ NUEVO"; document.getElementById('btnAddCenter').classList.remove('danger'); document.getElementById('mapInstr').style.display = 'none'; closeModal('modalCreate'); }
+        function startCreate() { if (isCalibrating) toggleCalibrate(); closeSidebarMobile(); isCreating = true; document.getElementById('btnAddCenter').innerText = "Cancelar"; document.getElementById('btnAddCenter').classList.add('danger'); document.getElementById('mapInstr').innerText = "TOCA EL MAPA PARA UBICAR EL CENTRO"; document.getElementById('mapInstr').style.display = 'block'; }
+        function cancelCreate() { isCreating = false; document.getElementById('btnAddCenter').innerText = "+ Nuevo"; document.getElementById('btnAddCenter').classList.remove('danger'); document.getElementById('mapInstr').style.display = 'none'; closeModal('modalCreate'); }
         function saveCenter() {
-            if(!document.getElementById('cName').value) { showToast('Falta nombre'); return; }
-            if(!document.getElementById('cLat').value) { showToast('Toca el mapa'); return; }
+            if (!document.getElementById('cName').value) { showToast('Falta nombre'); return; }
+            if (!document.getElementById('cLat').value) { showToast('Toca el mapa'); return; }
             const id = DB.insert('centers', { name: document.getElementById('cName').value, type: document.getElementById('cType').value, affiliation: document.getElementById('cAff').value, lat: parseFloat(document.getElementById('cLat').value), lng: parseFloat(document.getElementById('cLng').value), authority: document.getElementById('cAuth').value, phone: document.getElementById('cPhone').value, schedule: document.getElementById('cSched').value, areas: document.getElementById('cAreas').value });
             cancelCreate(); renderAll(); focusOrView(id);
         }
 
         document.getElementById('btnStartNormal').addEventListener('click', () => { closeModal('modalStartup'); initMap(); });
         document.getElementById('btnStartClearCache').addEventListener('click', async () => { await DB.clearAllCaches(); closeModal('modalStartup'); initMap(); showToast('Caché vaciada'); });
-        document.getElementById('btnAddCenter').addEventListener('click', () => { if(isCreating) cancelCreate(); else startCreate(); });
+        document.getElementById('btnFullscreen').addEventListener('click', enterImmersive);
+        document.getElementById('btnExitImmersive').addEventListener('click', exitImmersive);
+        document.getElementById('btnAddCenter').addEventListener('click', () => { if (isCreating) cancelCreate(); else startCreate(); });
         document.getElementById('btnMenu').addEventListener('click', toggleSidebar);
         document.getElementById('btnCalibrate').addEventListener('click', toggleCalibrate);
         document.getElementById('btnBackup').addEventListener('click', downloadBackup);
@@ -504,7 +607,9 @@
         document.getElementById('fileRestore').addEventListener('change', restoreBackup);
         document.getElementById('btnClearCache').addEventListener('click', async () => { if (!confirm('¿Vaciar caché?')) return; await DB.clearAllCaches(); renderAll(); showToast('Caché vaciada'); });
         document.getElementById('btnExportCoords').addEventListener('click', () => { copyTextSafe(JSON.stringify(DB.get().centers, null, 2)); });
-        window.addEventListener('resize', () => { if(map) setTimeout(() => map.invalidateSize(), 150); });
+
+        window.addEventListener('resize', () => { if (map) setTimeout(() => map.invalidateSize(), 150); });
+        window.addEventListener('orientationchange', () => { if (map) setTimeout(() => map.invalidateSize(), 300); });
     </script>
 </body>
 </html>
