@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Sala Situacional - Red de Salud</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #050507;
+            --bg-panel: rgba(12, 15, 20, 0.96);
+            --bg-card: #161a21;
+            --border-glow: #00f3ff;
+            --text-main: #e0e6ed;
+            --text-dim: #7a8694;
+            --accent-red: #ff003c;
+            --accent-green: #00ff9d;
+            --accent-gold: #ffd166;
+        }
+
+        * {
+            margin: 0; padding: 0; box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            font-family: 'Rajdhani', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            width: 100%;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            overscroll-behavior: none;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        header {
+            background: var(--bg-panel);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0, 243, 255, 0.3);
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            flex-shrink: 0;
+            gap: 10px;
+        }
+
+        .brand-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        header h1 {
+            font-size: 16px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--border-glow);
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.45);
+            white-space: nowrap;
+        }
+
+        .sys-status {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--accent-green);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .sys-status::before {
+            content: '';
+            width: 8px; height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-green);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
+        .header-actions {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: transparent;
+            border: 1px solid var(--text-dim);
+            color: var(--text-main);
+            padding: 7px 10px;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            font-size: 12px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            touch-action: manipulation;
+            -webkit-appearance: none;
+            appearance: none;
+            border-radius: 4px;
+        }
+        .btn:hover { border-color: var(--border-glow); color: var(--border-glow); }
+        .btn.active { background: var(--border-glow); color: #000; border-color: var(--border-glow); }
+        .btn.calibrate-active { background: var(--accent-gold); color: #000; border-color: var(--accent-gold); }
+        .btn.danger { border-color: rgba(255, 0, 60, 0.7); color: var(--accent-red); }
+        .btn.danger:hover { background: var(--accent-red); color: #fff; border-color: var(--accent-red); }
+
+        .container { flex: 1; display: flex; overflow: hidden; position: relative; min-height: 0; }
+
+        .sidebar {
+            width: 340px; height: 100%; background: var(--bg-panel);
+            -webkit-backdrop-filter: blur(15px); backdrop-filter: blur(15px);
+            border-right: 1px solid rgba(0, 243, 255, 0.2);
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+            padding: 16px; z-index: 900; flex-shrink: 0;
+            transition: transform 0.3s ease;
+        }
+        .sidebar h2 { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-dim); margin-bottom: 12px; border-bottom: 1px solid var(--text-dim); padding-bottom: 8px; }
+        .center-card { background: var(--bg-card); border: 1px solid rgba(255,255,255,0.06); border-left: 3px solid var(--text-dim); padding: 12px; margin-bottom: 10px; cursor: pointer; border-radius: 4px; }
+        .center-card:hover { background: #1c2128; border-left-color: var(--border-glow); }
+        .center-card h3 { font-size: 15px; margin-bottom: 3px; color: #fff; }
+        .center-card p { font-size: 12px; color: var(--text-dim); }
+        .card-badges { display: flex; gap: 8px; margin-top: 6px; }
+        .badge { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 2px 6px; background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+        .map-wrapper { flex: 1; position: relative; height: 100%; background: #050508; min-width: 0; }
+        #map {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%; z-index: 1;
+            background-color: #050508 !important;
+        }
+        .leaflet-container { background-color: #050508 !important; outline: none; }
+        .leaflet-control-layers {
+            background: var(--bg-panel) !important;
+            color: var(--text-main) !important;
+            border: 1px solid rgba(0, 243, 255, 0.35) !important;
+            font-family: 'Rajdhani', sans-serif !important;
+        }
+
+        .map-fallback {
+            position: absolute; inset: 0; z-index: 10;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; padding: 24px; background: #07090e;
+        }
+        .map-fallback h3 { color: var(--accent-gold); font-size: 20px; margin-bottom: 10px; }
+        .map-fallback p { color: var(--text-main); font-size: 15px; max-width: 420px; line-height: 1.5; }
+
+        .custom-div-icon { background: transparent; border: none; }
+        .marker-pulse {
+            width: 16px; height: 16px; background: var(--color); border-radius: 50%;
+            box-shadow: 0 0 15px var(--color), 0 0 30px var(--color); position: relative;
+        }
+        .marker-pulse::after {
+            content: ''; position: absolute; top: -6px; left: -6px; width: 28px; height: 28px;
+            border: 1px solid var(--color); border-radius: 50%; animation: radar 2s infinite;
+        }
+        .marker-calibrating { outline: 2px dashed var(--accent-gold); outline-offset: 4px; cursor: grab !important; }
+        @keyframes radar { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(2.5); opacity: 0; } }
+
+        .modal-bg {
+            position: fixed; inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+            display: none; justify-content: center; align-items: center;
+            z-index: 2500; padding: 14px;
+        }
+        .modal-bg.active { display: flex; }
+        .modal-box {
+            background: var(--bg-panel); border: 1px solid var(--border-glow);
+            width: 100%; max-width: 560px; max-height: 88dvh;
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.15);
+        }
+        .modal-header { padding: 16px 18px; border-bottom: 1px solid rgba(255,255,255,0.12); display: flex; justify-content: space-between; align-items: center; background: linear-gradient(90deg, rgba(0, 243, 255, 0.12), transparent); }
+        .modal-header h2 { color: var(--border-glow); text-transform: uppercase; letter-spacing: 1px; font-size: 17px; }
+        .modal-header .close { background: none; border: none; color: var(--text-dim); font-size: 28px; cursor: pointer; padding: 0 6px; }
+        .modal-body { padding: 18px; }
+
+        .startup-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+        .startup-actions .btn { width: 100%; padding: 12px; font-size: 14px; text-align: center; }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase; }
+        .form-input {
+            width: 100%; background: var(--bg-dark); border: 1px solid var(--text-dim);
+            color: var(--text-main); padding: 9px 10px;
+            font-family: 'Rajdhani', sans-serif; font-size: 16px;
+            -webkit-appearance: none; appearance: none; border-radius: 4px;
+        }
+        .form-input:focus { border-color: var(--border-glow); outline: none; }
+
+        .tabs { display: flex; border-bottom: 1px solid var(--text-dim); margin-bottom: 16px; overflow-x: auto; }
+        .tab { padding: 10px 14px; cursor: pointer; color: var(--text-dim); border-bottom: 2px solid transparent; white-space: nowrap; }
+        .tab.active { color: var(--border-glow); border-bottom-color: var(--border-glow); }
+
+        .list-item { background: var(--bg-dark); border-left: 3px solid var(--text-dim); padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; }
+        .list-item.student { border-left-color: var(--accent-green); }
+        .list-item.pathology { border-left-color: var(--accent-red); }
+        .list-item-info h4 { margin-bottom: 2px; font-size: 15px; }
+        .list-item-info span { font-size: 13px; color: var(--text-dim); }
+        .delete-btn { background: transparent; border: none; color: var(--accent-red); cursor: pointer; font-size: 22px; padding: 0 6px; }
+
+        .map-instruction {
+            position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+            background: var(--accent-red); color: #fff; padding: 8px 16px; font-weight: 700; font-size: 12px;
+            z-index: 500; display: none; max-width: 92%; border-radius: 4px;
+            letter-spacing: 1px; text-align: center;
+        }
+        .map-instruction.calibrate { background: var(--accent-gold); color: #000; }
+
+        .toast {
+            position: fixed; bottom: calc(16px + env(safe-area-inset-bottom)); right: 16px; left: 16px;
+            max-width: 420px; margin: 0 auto;
+            background: var(--accent-green); color: #000; padding: 12px 16px; font-weight: 700;
+            transform: translateY(120px); opacity: 0; transition: 0.3s; z-index: 3000; text-align: center; border-radius: 6px;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+
+        @media (max-width: 768px) {
+            header { flex-direction: column; align-items: stretch; padding: 8px 10px; gap: 8px; }
+            header h1 { font-size: 14px; letter-spacing: 1.5px; }
+            .header-actions {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 6px;
+                width: 100%;
+            }
+            .header-actions .btn {
+                width: 100%;
+                padding: 7px 4px;
+                font-size: 11px;
+                text-align: center;
+            }
+            .sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: 86%; max-width: 320px; transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .form-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand-row">
+            <h1>/// SALA SITUACIONAL SALUD</h1>
+            <span class="sys-status">ONLINE</span>
+        </div>
+        <div class="header-actions">
+            <button class="btn" id="btnMenu">☰ NODOS</button>
+            <button class="btn" id="btnCalibrate">⌖ CALIBRAR</button>
+            <button class="btn" id="btnAddCenter">+ NUEVO</button>
+            <button class="btn" id="btnExportCoords">⇩ COORDS</button>
+            <button class="btn" id="btnBackup">⇩ RESPALDO</button>
+            <button class="btn danger" id="btnClearCache">🗑 CACHÉ</button>
+        </div>
+        <input type="file" id="fileRestore" accept=".json,application/json" style="display:none;">
+    </header>
+
+    <div class="container">
+        <div class="sidebar" id="sidebar">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h2 style="margin:0; border:none; padding:0;">NODOS ACTIVOS</h2>
+                <button class="btn" id="btnRestore" style="padding:4px 8px; font-size:11px;">⇧ RESTAURAR</button>
+            </div>
+            <div id="centerList"></div>
+        </div>
+        <div class="map-wrapper">
+            <div id="map"></div>
+            <div class="map-fallback" id="mapFallback">
+                <h3>⚠ VISOR RESTRINGIDO O SIN CONEXIÓN</h3>
+                <p>No se pudo cargar el motor del mapa. Si estás en <b>iPhone</b>, no abras el archivo desde la vista previa de <i>Archivos/WhatsApp</i> ("Contenido web"); ábrelo desde un enlace web real en <b>Safari</b> o <b>Chrome</b>.</p>
+            </div>
+            <div class="map-instruction" id="mapInstr">TOCA EL MAPA PARA GEOLOCALIZAR CENTRO</div>
+        </div>
+    </div>
+
+    <!-- MODAL DE INICIO (iOS, Android y PC) -->
+    <div class="modal-bg active" id="modalStartup">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2>INICIO DE SISTEMA</h2>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:15px; line-height:1.5; color:var(--text-main);">
+                    Selecciona cómo deseas iniciar la <b>Sala Situacional</b> en este dispositivo (iOS, Android o PC):
+                </p>
+                <div class="startup-actions">
+                    <button class="btn active" id="btnStartNormal">▶ INICIAR (CONSERVAR DATOS GUARDADOS)</button>
+                    <button class="btn danger" id="btnStartClearCache">🗑 VACIAR CACHÉ Y CARGAR COORDENADAS REALES</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-bg" id="modalView">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div>
+                    <h2 id="vName"></h2>
+                    <span style="font-size:12px; color:var(--text-dim);" id="vType"></span>
+                </div>
+                <button class="close" onclick="closeModal('modalView')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="tabs">
+                    <div class="tab active" onclick="switchTab('tabData', this)">DATOS</div>
+                    <div class="tab" onclick="switchTab('tabStudents', this)">ESTUDIANTES</div>
+                    <div class="tab" onclick="switchTab('tabPathos', this)">EPIDEMIOLOGÍA</div>
+                </div>
+                <div id="tabData">
+                    <div class="form-grid" id="dataGrid"></div>
+                    <div style="margin-top: 18px; text-align: right;">
+                        <button class="btn danger" onclick="deleteCenter()">Eliminar Nodo</button>
+                    </div>
+                </div>
+                <div id="tabStudents" style="display:none;">
+                    <button class="btn active" style="width:100%; margin-bottom:14px;" onclick="addStudent()">+ ASIGNAR ESTUDIANTE</button>
+                    <div id="studentList"></div>
+                </div>
+                <div id="tabPathos" style="display:none;">
+                    <button class="btn active" style="width:100%; margin-bottom:14px; background: var(--accent-red); color: #fff; border-color: var(--accent-red);" onclick="addPathology()">+ REPORTE EPIDEMIOLÓGICO</button>
+                    <div id="pathologyList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-bg" id="modalCreate">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2>Registrar Nodo de Salud</h2>
+                <button class="close" onclick="cancelCreate()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nombre Oficial</label>
+                    <input type="text" id="cName" class="form-input" placeholder="Ej: Hospital General">
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Tipo</label>
+                        <select id="cType" class="form-input"><option>Hospital</option><option>Ambulatorio</option><option>CDI</option><option>Clínica Popular</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Adscrito a</label>
+                        <select id="cAff" class="form-input"><option>MPPS</option><option>IVSS</option><option>Gobernación</option><option>Alcaldía</option><option>Universidad</option><option>Privado</option></select>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group"><label>Latitud</label><input type="text" id="cLat" class="form-input" readonly></div>
+                    <div class="form-group"><label>Longitud</label><input type="text" id="cLng" class="form-input" readonly></div>
+                </div>
+                <div class="form-group"><label>Encargado/Autoridad</label><input type="text" id="cAuth" class="form-input"></div>
+                <div class="form-group"><label>Teléfono</label><input type="tel" id="cPhone" class="form-input"></div>
+                <div class="form-group"><label>Horario Operativo</label><input type="text" id="cSched" class="form-input" placeholder="24/7 o 08:00-16:00"></div>
+                <div class="form-group"><label>Áreas Clínicas y Comunitarias</label><textarea id="cAreas" class="form-input" rows="3"></textarea></div>
+                <div class="form-group"><label>Enlace Universitario</label><input type="text" id="cUni" class="form-input" placeholder="Convenio con Universidad..."></div>
+                <div style="text-align:right; margin-top:16px; display:flex; gap:10px; justify-content:flex-end;">
+                    <button class="btn" onclick="cancelCreate()">CANCELAR</button>
+                    <button class="btn active" onclick="saveCenter()">GUARDAR</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const privateSeedCenters = [
+            { id: 'c_victorino', name: 'Hospital Victorino Santaella', type: 'Hospital', affiliation: 'Gobernación', lat: 10.35331, lng: -67.03776, authority: 'Dr. Encargado', schedule: '24/7', areas: 'Emergencias, Cirugía, Maternidad', coverage: 5000 },
+            { id: 'c_paso', name: 'Clínica Popular El Paso', type: 'Clínica Popular', affiliation: 'Alcaldía', lat: 10.34974, lng: -67.05014, authority: 'Lcda. González', schedule: '08:00-16:00', areas: 'Medicina General', coverage: 2000 },
+            { id: 'c_sanpedro', name: 'Ambulatorio San Pedro de Los Altos', type: 'Ambulatorio', affiliation: 'Alcaldía', lat: 10.36580, lng: -67.07720, authority: 'Lcda. González', schedule: '08:00-16:00', areas: 'Medicina General', coverage: 2000 },
+            { id: 'c_pronto', name: 'Pronto Socorro Los Teques', type: 'Ambulatorio', affiliation: 'Gobernación', lat: 10.34430, lng: -67.04120, authority: 'Lcda. Mogollón', schedule: '24/7', areas: 'Emergencias', coverage: 3000 },
+            { id: 'c_llanoalto', name: 'CDI Llano Alto (Carrizal)', type: 'CDI', affiliation: 'MPPS', lat: 10.34920, lng: -66.99360, authority: 'Lcda. Julia', schedule: '24/7', areas: 'UCI, Observación', coverage: 4000 },
+            { id: 'c_tinoco', name: 'Geriátrico Padre Tinoco', type: 'Clínica Popular', affiliation: 'Privado', lat: 10.45590, lng: -66.91420, authority: 'Diácono Fray', schedule: '24/7', areas: 'Cuidados Geriátricos', coverage: 2000 },
+            { id: 'c_guaremal', name: 'Ambulatorio Guaremal (Carrizal)', type: 'Ambulatorio', affiliation: 'Alcaldía', lat: 10.33860, lng: -66.98530, authority: 'N/A', schedule: '08:00-16:00', areas: 'Medicina General', coverage: 2000 },
+            { id: 'c_llanito', name: 'Hospital Domingo Luciani (El Llanito)', type: 'Hospital', affiliation: 'MPPS', lat: 10.47129, lng: -66.81042, authority: 'N/A', schedule: '24/7', areas: 'Emergencias, Traumatología', coverage: 5000 },
+            { id: 'c_perezdeleon', name: 'Hospital Pérez de León (Petare)', type: 'Hospital', affiliation: 'MPPS', lat: 10.47774, lng: -66.80983, authority: 'N/A', schedule: '24/7', areas: 'Cirugía, Maternidad', coverage: 5000 },
+            { id: 'c_maracay', name: 'Hospital Central de Maracay', type: 'Hospital', affiliation: 'MPPS', lat: 10.27341, lng: -67.58961, authority: 'N/A', schedule: '24/7', areas: 'Traumatología, Emergencias', coverage: 8000 },
+            { id: 'c_tejerias', name: 'Ambulatorio Las Tejerías', type: 'Ambulatorio', affiliation: 'MPPS', lat: 10.25540, lng: -67.17310, authority: 'N/A', schedule: '08:00-16:00', areas: 'Medicina General', coverage: 2000 },
+            { id: 'c_quebradita', name: 'Ambulatorio La Quebradita', type: 'Ambulatorio', affiliation: 'MPPS', lat: 10.49120, lng: -66.94250, authority: 'N/A', schedule: '08:00-16:00', areas: 'Medicina General', coverage: 2000 },
+            { id: 'c_losmagallanes', name: 'Hospital Los Magallanes de Catia', type: 'Hospital', affiliation: 'MPPS', lat: 10.51770, lng: -66.95310, authority: 'N/A', schedule: '24/7', areas: 'Medicina Interna, Emergencias', coverage: 5000 },
+            { id: 'c_divinonino', name: 'Ambulatorio Divino Niño (El Valle)', type: 'Ambulatorio', affiliation: 'MPPS', lat: 10.46050, lng: -66.91230, authority: 'N/A', schedule: '08:00-16:00', areas: 'Pediatría', coverage: 2000 },
+            { id: 'c_montanaalta', name: 'Ambulatorio Montaña Alta', type: 'Ambulatorio', affiliation: 'Alcaldía', lat: 10.35908, lng: -67.00645, authority: 'N/A', schedule: '08:00-16:00', areas: 'Medicina General', coverage: 2000 },
+            { id: 'c_juliosantos', name: 'CDI Julio Santos', type: 'CDI', affiliation: 'MPPS', lat: 10.47450, lng: -66.88240, authority: 'N/A', schedule: '24/7', areas: 'UCI', coverage: 4000 },
+            { id: 'c_oscarovalles', name: 'Hospital Oscar Ovalles (Cúa)', type: 'Hospital', affiliation: 'IVSS', lat: 10.16050, lng: -66.88560, authority: 'N/A', schedule: '24/7', areas: 'Cirugía, Emergencias', coverage: 5000 },
+            { id: 'c_romulo', name: 'Hospital Rómulo Gallegos (El Sombrero)', type: 'Hospital', affiliation: 'MPPS', lat: 9.38330, lng: -67.05000, authority: 'N/A', schedule: '24/7', areas: 'Medicina General', coverage: 5000 }
+        ];
+
+        const DB_KEY = 'db_salud_v5_verified';
+        let memoryFallback = null;
+
+        const DB = {
+            defaultData: () => ({
+                centers: JSON.parse(JSON.stringify(privateSeedCenters)),
+                students: [],
+                pathologies: []
+            }),
+            init: () => {
+                try {
+                    if (!localStorage.getItem(DB_KEY)) {
+                        localStorage.setItem(DB_KEY, JSON.stringify(DB.defaultData()));
+                    }
+                } catch (_) {
+                    if (!memoryFallback) memoryFallback = DB.defaultData();
+                }
+            },
+            get: () => {
+                try {
+                    const raw = localStorage.getItem(DB_KEY);
+                    return raw ? JSON.parse(raw) : DB.defaultData();
+                } catch (_) {
+                    if (!memoryFallback) memoryFallback = DB.defaultData();
+                    return memoryFallback;
+                }
+            },
+            save: (data) => {
+                memoryFallback = data;
+                try { localStorage.setItem(DB_KEY, JSON.stringify(data)); } catch (_) {}
+            },
+            insert: (table, obj) => {
+                const db = DB.get();
+                obj.id = table.substring(0, 3) + Date.now();
+                db[table].push(obj);
+                DB.save(db);
+                return obj.id;
+            },
+            delete: (table, id) => {
+                const db = DB.get();
+                db[table] = db[table].filter(item => item.id !== id);
+                if (table === 'centers') {
+                    db.students = db.students.filter(s => s.centerId !== id);
+                    db.pathologies = db.pathologies.filter(p => p.centerId !== id);
+                }
+                DB.save(db);
+            },
+            clearAllCaches: async () => {
+                memoryFallback = DB.defaultData();
+                try { localStorage.clear(); } catch (_) {}
+                try { sessionStorage.clear(); } catch (_) {}
+                try {
+                    if ('caches' in window) {
+                        const keys = await caches.keys();
+                        await Promise.all(keys.map(k => caches.delete(k)));
+                    }
+                } catch (_) {}
+                DB.init();
+            }
+        };
+        DB.init();
+
+        let map = null, layerControl = null, circlesLayer = null;
+        let markers = {};
+        let isCreating = false;
+        let isCalibrating = false;
+        let currentCenterId = null;
+
+        function initMap() {
+            if (typeof L === 'undefined') {
+                document.getElementById('mapFallback').style.display = 'flex';
+                renderSidebar();
+                return;
+            }
+            if (map) {
+                map.invalidateSize();
+                renderAll();
+                return;
+            }
+
+            map = L.map('map', {
+                zoomControl: false,
+                attributionControl: false,
+                tap: false
+            }).setView([10.35331, -67.03776], 12);
+
+            const googleHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+                maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+            }).addTo(map);
+
+            const googleStreets = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+                maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+            });
+
+            const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+                maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+            });
+
+            const darkLayer = L.layerGroup([
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }),
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 })
+            ]);
+
+            layerControl = L.control.layers({
+                "Google Híbrido": googleHybrid,
+                "Google Calles": googleStreets,
+                "Google Satélite": googleSat,
+                "Táctico Oscuro": darkLayer
+            }, {}, { position: 'topright' }).addTo(map);
+
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+            loadOfficialGeoJSONs();
+
+            map.on('click', function (e) {
+                if (isCreating) {
+                    document.getElementById('cLat').value = e.latlng.lat.toFixed(6);
+                    document.getElementById('cLng').value = e.latlng.lng.toFixed(6);
+                    openModal('modalCreate');
+                }
+            });
+
+            setTimeout(() => map.invalidateSize(), 250);
+            renderAll();
+        }
+
+        async function loadOfficialGeoJSONs() {
+            const layersConfig = [
+                { file: './data/estados.geojson', label: 'Estados + Esequibo', color: '#00f3ff', weight: 2, defaultOn: true },
+                { file: './data/municipios.geojson', label: 'Municipios', color: '#00ff9d', weight: 1.2, defaultOn: false },
+                { file: './data/parroquias.geojson', label: 'Parroquias', color: '#ffd166', weight: 0.8, defaultOn: false }
+            ];
+
+            for (const cfg of layersConfig) {
+                try {
+                    const res = await fetch(cfg.file);
+                    if (!res.ok) continue;
+                    const data = await res.json();
+                    const geoLayer = L.geoJSON(data, {
+                        style: (feature) => {
+                            const isReclamacion = feature?.properties?.estatus_territorial === 'zona_en_reclamacion';
+                            return {
+                                color: isReclamacion ? '#ffd166' : cfg.color,
+                                weight: cfg.weight,
+                                dashArray: isReclamacion ? '6, 6' : null,
+                                fillColor: isReclamacion ? '#ffd166' : cfg.color,
+                                fillOpacity: isReclamacion ? 0.12 : 0.04
+                            };
+                        },
+                        onEachFeature: (feature, layer) => {
+                            const p = feature.properties || {};
+                            const title = p.parroquia || p.municipio || p.estado || p.name || 'Territorio';
+                            const sub = p.estatus_territorial === 'zona_en_reclamacion' ? ' (Zona en Reclamación)' : '';
+                            layer.bindTooltip(`${title}${sub}`, { sticky: true });
+                        }
+                    });
+                    if (cfg.defaultOn) geoLayer.addTo(map);
+                    layerControl.addOverlay(geoLayer, cfg.label);
+                } catch (_) {}
+            }
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2600);
+        }
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+        function closeSidebarMobile() { if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open'); }
+        function switchTab(id, el) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+            document.querySelectorAll('#tabData, #tabStudents, #tabPathos').forEach(t => t.style.display = 'none');
+            document.getElementById(id).style.display = 'block';
+        }
+
+        function renderAll() {
+            const db = DB.get();
+            if (map) {
+                Object.values(markers).forEach(m => map.removeLayer(m));
+                markers = {};
+                if (circlesLayer) map.removeLayer(circlesLayer);
+                circlesLayer = L.layerGroup().addTo(map);
+
+                db.centers.forEach(c => {
+                    const color = c.type === 'Hospital' ? '#ff003c' : c.type === 'Ambulatorio' ? '#00ff9d' : '#00f3ff';
+                    const extraClass = isCalibrating ? 'marker-calibrating' : '';
+                    const icon = L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div class="marker-pulse ${extraClass}" style="--color: ${color}"></div>`,
+                        iconSize: [16, 16], iconAnchor: [8, 8]
+                    });
+
+                    const marker = L.marker([c.lat, c.lng], { icon, draggable: isCalibrating }).addTo(map);
+                    marker.bindTooltip(c.name, { direction: 'top', offset: [0, -10] });
+
+                    marker.on('click', () => { if (!isCalibrating) viewCenter(c.id); });
+                    marker.on('dragend', (e) => {
+                        const pos = e.target.getLatLng();
+                        const currentDb = DB.get();
+                        const target = currentDb.centers.find(x => x.id === c.id);
+                        if (target) {
+                            target.lat = parseFloat(pos.lat.toFixed(6));
+                            target.lng = parseFloat(pos.lng.toFixed(6));
+                            DB.save(currentDb);
+                            renderAll();
+                            showToast(`${c.name} reubicado (${target.lat}, ${target.lng})`);
+                        }
+                    });
+
+                    markers[c.id] = marker;
+                    if (c.coverage) {
+                        L.circle([c.lat, c.lng], {
+                            radius: c.coverage, color: color, weight: 1, opacity: 0.25, fillColor: color, fillOpacity: 0.06
+                        }).addTo(circlesLayer);
+                    }
+                });
+            }
+            renderSidebar();
+        }
+
+        function renderSidebar() {
+            const db = DB.get();
+            const list = document.getElementById('centerList');
+            list.innerHTML = '';
+            if (db.centers.length === 0) {
+                list.innerHTML = '<p style="color:var(--text-dim); font-size:14px; text-align:center;">Sin nodos activos.</p>';
+                return;
+            }
+            db.centers.forEach(c => {
+                const color = c.type === 'Hospital' ? '#ff003c' : c.type === 'Ambulatorio' ? '#00ff9d' : '#00f3ff';
+                const stuCount = db.students.filter(s => s.centerId === c.id).length;
+                const patCount = db.pathologies.filter(p => p.centerId === c.id).length;
+                list.innerHTML += `
+                    <div class="center-card" style="border-left-color: ${color};" onclick="focusOrView('${c.id}')">
+                        <h3>${c.name}</h3>
+                        <p>${c.type} | ${c.affiliation}</p>
+                        <div class="card-badges">
+                            <span class="badge" style="color:${color};">EST: ${stuCount}</span>
+                            <span class="badge" style="color:var(--accent-red);">PAT: ${patCount}</span>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function focusOrView(id) {
+            const c = DB.get().centers.find(x => x.id === id);
+            if (!c) return;
+            closeSidebarMobile();
+            if (isCalibrating && map) {
+                map.flyTo([c.lat, c.lng], 18);
+                showToast(`Arrastra el pin de ${c.name} al edificio real`);
+            } else {
+                viewCenter(id);
+            }
+        }
+
+        function startCreate() {
+            if (isCalibrating) toggleCalibrate();
+            closeSidebarMobile();
+            isCreating = true;
+            const btn = document.getElementById('btnAddCenter');
+            btn.innerText = "CANCELAR";
+            btn.style.color = "var(--accent-red)";
+            btn.style.borderColor = "var(--accent-red)";
+            const instr = document.getElementById('mapInstr');
+            instr.classList.remove('calibrate');
+            instr.innerText = "TOCA EL MAPA PARA GEOLOCALIZAR CENTRO";
+            instr.style.display = 'block';
+        }
+
+        function cancelCreate() {
+            isCreating = false;
+            const btn = document.getElementById('btnAddCenter');
+            btn.innerText = "+ NUEVO";
+            btn.style.color = "";
+            btn.style.borderColor = "";
+            document.getElementById('mapInstr').style.display = 'none';
+            closeModal('modalCreate');
+        }
+
+        function toggleCalibrate() {
+            if (isCreating) cancelCreate();
+            closeSidebarMobile();
+            isCalibrating = !isCalibrating;
+            const btn = document.getElementById('btnCalibrate');
+            const instr = document.getElementById('mapInstr');
+            btn.classList.toggle('calibrate-active', isCalibrating);
+            btn.innerText = isCalibrating ? '✓ LISTO' : '⌖ CALIBRAR';
+            if (isCalibrating) {
+                instr.classList.add('calibrate');
+                instr.innerText = "MODO CALIBRACIÓN: ARRASTRA LOS PINES A SU UBICACIÓN EXACTA";
+                instr.style.display = 'block';
+                showToast('Toca un centro en NODOS para ir directo con zoom 18');
+            } else {
+                instr.style.display = 'none';
+                showToast('Calibración guardada');
+            }
+            renderAll();
+        }
+
+        function saveCenter() {
+            const name = document.getElementById('cName').value;
+            if (!name) { showToast('Error: Falta nombre'); return; }
+            if (!document.getElementById('cLat').value) { showToast('Error: Toca el mapa primero'); return; }
+            const newCenter = {
+                name: name,
+                type: document.getElementById('cType').value,
+                affiliation: document.getElementById('cAff').value,
+                lat: parseFloat(document.getElementById('cLat').value),
+                lng: parseFloat(document.getElementById('cLng').value),
+                authority: document.getElementById('cAuth').value,
+                phone: document.getElementById('cPhone').value,
+                schedule: document.getElementById('cSched').value,
+                areas: document.getElementById('cAreas').value,
+                university: document.getElementById('cUni').value,
+                coverage: 3000
+            };
+            const id = DB.insert('centers', newCenter);
+            cancelCreate(); renderAll(); showToast('Nodo Creado Exitosamente'); viewCenter(id);
+        }
+
+        function viewCenter(id) {
+            const db = DB.get();
+            const c = db.centers.find(x => x.id === id);
+            if (!c) return;
+            currentCenterId = id;
+            if (map) map.flyTo([c.lat, c.lng], 16);
+            document.getElementById('vName').innerText = c.name;
+            document.getElementById('vType').innerText = `${c.type.toUpperCase()} | ${c.affiliation}`;
+            const color = c.type === 'Hospital' ? 'var(--accent-red)' : c.type === 'Ambulatorio' ? 'var(--accent-green)' : 'var(--border-glow)';
+            document.getElementById('dataGrid').innerHTML = `
+                <div class="form-group"><label>Coordenadas</label><div class="form-input" style="color:${color};">${c.lat}, ${c.lng}</div></div>
+                <div class="form-group"><label>Ente</label><div class="form-input">${c.affiliation}</div></div>
+                <div class="form-group"><label>Autoridad</label><div class="form-input">${c.authority || 'N/A'}</div></div>
+                <div class="form-group"><label>Teléfono</label><div class="form-input">${c.phone || 'N/A'}</div></div>
+                <div class="form-group"><label>Horario</label><div class="form-input">${c.schedule || 'N/A'}</div></div>
+                <div class="form-group"><label>Enlace Univ.</label><div class="form-input">${c.university || 'N/A'}</div></div>
+                <div class="form-group" style="grid-column: span 2;"><label>Áreas Clínicas</label><div class="form-input" style="min-height:48px;">${c.areas || 'N/A'}</div></div>
+            `;
+            renderLists(id);
+            openModal('modalView');
+        }
+
+        function deleteCenter() {
+            if (!confirm("¿Eliminar nodo y todos sus datos asociados?")) return;
+            DB.delete('centers', currentCenterId);
+            closeModal('modalView');
+            renderAll();
+            showToast('Nodo Eliminado');
+        }
+
+        function renderLists(id) {
+            const db = DB.get();
+            let stuHtml = '<p style="color:var(--text-dim); text-align:center;">Sin estudiantes.</p>';
+            const students = db.students.filter(s => s.centerId === id);
+            if (students.length > 0) {
+                stuHtml = students.map(s => `<div class="list-item student"><div class="list-item-info"><h4>${s.name}</h4><span>Grupo: ${s.group} | Modalidad: ${s.modality}</span></div><button class="delete-btn" onclick="deleteItem('students','${s.id}')">&times;</button></div>`).join('');
+            }
+            document.getElementById('studentList').innerHTML = stuHtml;
+
+            let patHtml = '<p style="color:var(--text-dim); text-align:center;">Sin reportes.</p>';
+            const pathologies = db.pathologies.filter(p => p.centerId === id);
+            if (pathologies.length > 0) {
+                patHtml = pathologies.map(p => `<div class="list-item pathology"><div class="list-item-info"><h4 style="color:var(--accent-red);">${p.name}</h4><span><b>Síntomas:</b> ${p.symptoms}</span><br><span><b>Causas:</b> ${p.causes}</span></div><button class="delete-btn" onclick="deleteItem('pathologies','${p.id}')">&times;</button></div>`).join('');
+            }
+            document.getElementById('pathologyList').innerHTML = patHtml;
+        }
+
+        function deleteItem(table, id) { DB.delete(table, id); renderLists(currentCenterId); renderSidebar(); }
+
+        function addStudent() {
+            const name = prompt("Nombre del Estudiante:"); if (!name) return;
+            const group = prompt("Grupo:"); const modality = prompt("Modalidad:", "Extramuros");
+            DB.insert('students', { centerId: currentCenterId, name, group, modality });
+            renderLists(currentCenterId); renderSidebar(); showToast('Estudiante Asignado');
+        }
+
+        function addPathology() {
+            const name = prompt("Nombre Patología:"); if (!name) return;
+            const symptoms = prompt("Síntomas:"); const causes = prompt("Factores Causales:");
+            DB.insert('pathologies', { centerId: currentCenterId, name, symptoms, causes });
+            renderLists(currentCenterId); renderSidebar(); showToast('Reporte Registrado');
+        }
+
+        function copyTextSafe(text) {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text)
+                    .then(() => showToast('Coordenadas copiadas al portapapeles'))
+                    .catch(() => fallbackCopy(text));
+            } else {
+                fallbackCopy(text);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try {
+                document.execCommand('copy');
+                showToast('Coordenadas copiadas');
+            } catch (_) {
+                showToast('No se pudo copiar automáticamente');
+            }
+            document.body.removeChild(ta);
+        }
+
+        function downloadBackup() {
+            const data = JSON.stringify(DB.get(), null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const fecha = new Date().toISOString().slice(0, 10);
+            a.href = url;
+            a.download = `sala_situacional_respaldo_${fecha}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            showToast('Respaldo JSON descargado');
+        }
+
+        function restoreBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (!Array.isArray(parsed.centers) || !Array.isArray(parsed.students) || !Array.isArray(parsed.pathologies)) {
+                        showToast('Error: Formato de respaldo inválido');
+                        return;
+                    }
+                    DB.save(parsed);
+                    renderAll();
+                    showToast('Base de datos restaurada');
+                } catch (_) {
+                    showToast('Error al leer el archivo JSON');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // Eventos del Modal de Inicio
+        document.getElementById('btnStartNormal').addEventListener('click', () => {
+            closeModal('modalStartup');
+            initMap();
+        });
+
+        document.getElementById('btnStartClearCache').addEventListener('click', async () => {
+            await DB.clearAllCaches();
+            closeModal('modalStartup');
+            initMap();
+            showToast('Caché vaciada: coordenadas reales cargadas');
+        });
+
+        // Eventos del Header
+        document.getElementById('btnAddCenter').addEventListener('click', () => { if (isCreating) cancelCreate(); else startCreate(); });
+        document.getElementById('btnMenu').addEventListener('click', toggleSidebar);
+        document.getElementById('btnCalibrate').addEventListener('click', toggleCalibrate);
+        document.getElementById('btnBackup').addEventListener('click', downloadBackup);
+        document.getElementById('btnRestore').addEventListener('click', () => document.getElementById('fileRestore').click());
+        document.getElementById('fileRestore').addEventListener('change', restoreBackup);
+        document.getElementById('btnClearCache').addEventListener('click', async () => {
+            if (!confirm('¿Vaciar toda la caché y recargar las coordenadas reales desde cero?')) return;
+            await DB.clearAllCaches();
+            renderAll();
+            if (map) map.setView([10.35331, -67.03776], 12);
+            showToast('Caché vaciada correctamente');
+        });
+        document.getElementById('btnExportCoords').addEventListener('click', () => {
+            copyTextSafe(JSON.stringify(DB.get().centers, null, 2));
+        });
+
+        window.addEventListener('resize', () => { if (map) setTimeout(() => map.invalidateSize(), 150); });
+        window.addEventListener('orientationchange', () => { if (map) setTimeout(() => map.invalidateSize(), 300); });
+    </script>
+</body>
+</html>
