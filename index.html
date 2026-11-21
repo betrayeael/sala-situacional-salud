@@ -224,7 +224,6 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // COORDENADAS REALES MVP ACTUALIZADAS
         const privateSeedCenters = [
             { id: 'c_victorino', name: 'Hospital Victorino Santaella', type: 'Hospital', affiliation: 'Gobernación', lat: 10.354268, lng: -67.036209, authority: 'Dr. Encargado', schedule: '24/7', areas: 'Emergencias, Cirugía, Maternidad', coverage: 5000 },
             { id: 'c_paso', name: 'Clínica Popular El Paso', type: 'Clínica Popular', affiliation: 'Alcaldía', lat: 10.357224, lng: -67.063442, authority: 'Lcda. González', schedule: '08:00-16:00', areas: 'Medicina General', coverage: 2000 },
@@ -254,6 +253,9 @@
         let isCreating = false, isCalibrating = false, currentCenterId = null, isEditing = false;
         let isFocused = false, focusedCenterId = null;
         let audioCtx = null, noiseBuffer = null;
+        
+        // TOKEN DE CANCELACIÓN PARA SONIDO Y TIPEO
+        let currentToken = 0;
 
         function initMap() {
             if (typeof L === 'undefined') return;
@@ -278,12 +280,15 @@
         function playClickSound() { if (!audioCtx || !noiseBuffer) return; const ns = audioCtx.createBufferSource(); ns.buffer = noiseBuffer; const f = audioCtx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(800, audioCtx.currentTime); f.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.1); const g = audioCtx.createGain(); g.gain.setValueAtTime(0.15, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15); ns.connect(f); f.connect(g); g.connect(audioCtx.destination); ns.start(); ns.stop(audioCtx.currentTime + 0.16); }
         function playTypeSound() { if (!audioCtx || !noiseBuffer) return; const ns = audioCtx.createBufferSource(); ns.buffer = noiseBuffer; const f = audioCtx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1500 + Math.random() * 600; f.Q.value = 2; const g = audioCtx.createGain(); g.gain.setValueAtTime(0.06, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04); ns.connect(f); f.connect(g); g.connect(audioCtx.destination); ns.start(); ns.stop(audioCtx.currentTime + 0.05); }
 
-        async function typeLine(container, text, prefix="") {
+        // TIPEO CON VALIDACIÓN DE TOKEN (Se cancela instantáneamente)
+        async function typeLine(container, text, prefix="", token) {
             const lineDiv = document.createElement('div');
             lineDiv.className = 'terminal-line cursor-blink';
             container.appendChild(lineDiv);
             container.scrollTop = container.scrollHeight;
+            
             for (let i = 0; i < text.length; i++) {
+                if (token !== currentToken) return; // Si el token cambió, detener todo
                 lineDiv.innerHTML = `<span class="terminal-prefix">${prefix}</span>${text.substring(0, i + 1)}`;
                 playTypeSound();
                 container.scrollTop = container.scrollHeight;
@@ -304,6 +309,7 @@
             document.getElementById('panelView').classList.remove('active');
             setTimeout(() => { map.invalidateSize(); }, 360);
             showAllMarkers();
+            currentToken++; // Detener cualquier tipeo al cerrar
         }
         
         function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
@@ -377,14 +383,20 @@
         async function viewCenter(id) {
             initAudio();
             playClickSound();
+            
+            // INCREMENTAR TOKEN: Esto detiene instantáneamente cualquier tipeo anterior
+            currentToken++; 
+            const myToken = currentToken;
+            
             const db = DB.get(); const c = db.centers.find(x => x.id === id);
             if(!c) return; currentCenterId = id; isEditing = false;
             
+            // Limpiar UI inmediatamente
             document.getElementById('vName').innerText = c.name;
             document.getElementById('vType').innerText = `${c.type.toUpperCase()} | ${c.affiliation}`;
             document.getElementById('editForm').style.display = 'none';
             const term = document.getElementById('terminalOutput');
-            term.style.display = 'block'; term.innerHTML = '';
+            term.style.display = 'block'; term.innerHTML = ''; // Limpiar texto anterior
             const editBtn = document.getElementById('btnToggleEdit');
             editBtn.innerText = '✎ Editar'; editBtn.classList.remove('active');
             switchTab('tabData', document.getElementById('tabInfoBtn'));
@@ -392,20 +404,34 @@
             openPanel();
             
             await new Promise(r => setTimeout(r, 400));
+            if (myToken !== currentToken) return; // Abortar si el usuario presionó otro
+
             map.invalidateSize(); 
             map.flyTo([c.lat, c.lng], 16, { duration: 0.8 });
-            await new Promise(r => setTimeout(r, 900)); 
             
-            await typeLine(term, "ACCEDIENDO AL NODO...", ">");
+            // Esperar a que el mapa termine de centrarse
+            await new Promise(r => setTimeout(r, 850)); 
+            if (myToken !== currentToken) return; // Abortar si el usuario presionó otro
+
+            // AHORA SÍ: Iniciar descripción y sonido
+            await typeLine(term, "ACCEDIENDO AL NODO...", ">", myToken);
+            if (myToken !== currentToken) return;
             await new Promise(r => setTimeout(r, 150));
-            await typeLine(term, `Coordenadas: ${c.lat}, ${c.lng}`, ">");
-            await typeLine(term, `Ente: ${c.affiliation}`, ">");
-            await typeLine(term, `Autoridad: ${c.authority || 'N/A'}`, ">");
-            await typeLine(term, `Horario: ${c.schedule || 'N/A'}`, ">");
-            await typeLine(term, `Áreas: ${c.areas || 'N/A'}`, ">");
-            await typeLine(term, "FIN DEL REGISTRO.", ">");
+            if (myToken !== currentToken) return;
             
-            renderLists(id);
+            await typeLine(term, `Coordenadas: ${c.lat}, ${c.lng}`, ">", myToken);
+            if (myToken !== currentToken) return;
+            await typeLine(term, `Ente: ${c.affiliation}`, ">", myToken);
+            if (myToken !== currentToken) return;
+            await typeLine(term, `Autoridad: ${c.authority || 'N/A'}`, ">", myToken);
+            if (myToken !== currentToken) return;
+            await typeLine(term, `Horario: ${c.schedule || 'N/A'}`, ">", myToken);
+            if (myToken !== currentToken) return;
+            await typeLine(term, `Áreas: ${c.areas || 'N/A'}`, ">", myToken);
+            if (myToken !== currentToken) return;
+            await typeLine(term, "FIN DEL REGISTRO.", ">", myToken);
+            
+            if (myToken === currentToken) renderLists(id);
         }
 
         function toggleEditMode() {
